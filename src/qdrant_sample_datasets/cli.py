@@ -1,8 +1,10 @@
 import argparse
 import os
+import shutil
 from pathlib import Path
 
 from qdrant_sample_datasets.core.dataset import Dataset
+from qdrant_sample_datasets.core.export import export_collection
 from qdrant_sample_datasets.core.qdrant import (
     build_collection,
     connect,
@@ -71,6 +73,14 @@ def add_dataset_commands(parser: argparse.ArgumentParser, dataset: Dataset) -> N
         dataset.add_evaluate_arguments(evaluate)
         evaluate.set_defaults(func=lambda args: run_evaluate(args, dataset))
 
+    export = steps.add_parser(
+        "export",
+        help="Write the collection as Parquet shards and a card for Hugging Face",
+    )
+    add_connection_arguments(export, dataset, inference=False)
+    export.add_argument("--out", type=Path, default=DATA_DIR / dataset.name / "hf")
+    export.set_defaults(func=lambda args: run_export(args, dataset))
+
     snapshot = steps.add_parser(
         "snapshot", help="Create and download a collection snapshot"
     )
@@ -116,6 +126,18 @@ def run_query(args: argparse.Namespace, dataset: Dataset) -> None:
 def run_evaluate(args: argparse.Namespace, dataset: Dataset) -> None:
     client = connect(args.url, args.api_key, args.inference)
     dataset.evaluate(client, args.collection, args, args.inference)
+
+
+def run_export(args: argparse.Namespace, dataset: Dataset) -> None:
+    client = connect(args.url, args.api_key)
+    shards = export_collection(client, args.collection, dataset.hf_fields, args.out)
+    for name, source in dataset.hf_files().items():
+        shutil.copyfile(source, args.out / name)
+    for path, rows in shards:
+        print(f"{path} ({rows} rows, {path.stat().st_size / 1e6:.1f} MB)")
+    for path in dataset.export_extras(args.out):
+        print(f"{path} ({path.stat().st_size / 1e6:.1f} MB)")
+    print(f"files: {sorted(dataset.hf_files())} in {args.out}")
 
 
 def run_snapshot(args: argparse.Namespace) -> None:

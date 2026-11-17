@@ -48,8 +48,30 @@ uv run qdrant-datasets <dataset> evaluate --inference cloud
 | `query` | Runs a search to check the collection | Results in the terminal |
 | `snapshot` | Creates a collection snapshot and downloads it | `snapshots/<dataset>/` |
 | `evaluate` | Scores search quality against the relevance judgments, for datasets that ship them | Normalized discounted cumulative gain (nDCG) in the terminal |
+| `export` | Writes the collection as Parquet shards with a Hugging Face card, for publishing | `data/<dataset>/hf/` |
 
 `build`, `query`, `snapshot`, and `evaluate` connect to the cluster in `QDRANT_URL` with the key in `QDRANT_API_KEY`, or to `http://localhost:6333` when those aren't set. `--collection` overrides the default collection name. For `build`, `query`, and `evaluate`, `--inference cloud` lets Qdrant Cloud Inference compute the embeddings, and `--inference local` computes them on your machine. `build --limit N` upserts only the first N records, which is useful for checking the cost of a paid model before a full build. Run any step with `--help` to see its options.
+
+## Publishing to Hugging Face
+
+`export` reads a collection from the cluster, so the files hold the same vectors and payloads as the snapshot. It writes `data/<dataset>/hf/` in the layout Hugging Face expects: Parquet shards in `data/`, the dataset card from `hf_card.md` in the dataset folder as `README.md`, and any extra files such as the ESCI relevance judgments. It needs the `export` extra:
+
+```bash
+uv run --extra export qdrant-datasets esci export
+```
+
+Then upload the folder to the dataset repository with the Hugging Face CLI, logged in with a token that can write to the `Qdrant` organization:
+
+```bash
+uvx --from huggingface_hub hf auth login
+uvx --from huggingface_hub hf upload Qdrant/esci-products-multilingual-e5-small-embeddings data/esci/hf --repo-type dataset
+```
+
+| Dataset | Hugging Face repository |
+|---|---|
+| `docs` | `Qdrant/qdrant-docs-multilingual-e5-small-embeddings` |
+| `esci` | `Qdrant/esci-products-multilingual-e5-small-embeddings` |
+| `abo` | `Qdrant/amazon-berkeley-objects-clip-ViT-B-32-embeddings` |
 
 ## Repository Layout
 
@@ -59,6 +81,7 @@ src/qdrant_sample_datasets/
 ├── core/
 │   ├── dataset.py         # Dataset base class, CollectionSpec, Hit
 │   ├── download.py        # Download a source file once
+│   ├── export.py          # Write a collection as Parquet shards for Hugging Face
 │   ├── qdrant.py          # Connect, build a collection, download a snapshot
 │   ├── records.py         # JSONL helpers and batching
 │   ├── text_models.py     # Text embedding models, tokens, local or cloud vectors

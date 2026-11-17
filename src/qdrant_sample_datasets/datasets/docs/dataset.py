@@ -32,6 +32,14 @@ class DocsDataset(Dataset):
     name = "docs"
     description = "Qdrant documentation, articles, and course, chunked by section for hybrid search"
     collection = COLLECTION
+    hf_fields = (
+        ("url", "string"),
+        ("title", "string"),
+        ("section", "string"),
+        ("content_type", "string"),
+        ("has_code", "bool"),
+        ("text", "string"),
+    )
 
     def add_prepare_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(

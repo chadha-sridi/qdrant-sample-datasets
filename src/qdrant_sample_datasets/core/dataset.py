@@ -1,3 +1,4 @@
+import inspect
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterator
@@ -51,6 +52,16 @@ class Dataset(ABC):
         """Read prepared records and yield batches of points to upsert."""
 
     supports_evaluation = False
+    # Payload fields exported to Hugging Face, in column order, with their type: "string" or "bool".
+    hf_fields: tuple[tuple[str, str], ...] = ()
+
+    def hf_files(self) -> dict[str, Path]:
+        """Files published next to the Parquet shards, by name: the card, plus any extras."""
+        return {"README.md": Path(inspect.getfile(type(self))).parent / "hf_card.md"}
+
+    def export_extras(self, out_dir: Path) -> list[Path]:
+        """Write additional Hugging Face data files, such as relevance judgments, and return their paths."""
+        return []
 
     def add_evaluate_arguments(self, parser: ArgumentParser) -> None:
         """Add dataset-specific options to the evaluate step."""

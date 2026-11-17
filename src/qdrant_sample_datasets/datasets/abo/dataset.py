@@ -37,6 +37,15 @@ class AboDataset(Dataset):
         "Amazon Berkeley Objects products, searchable by text and by image with CLIP"
     )
     collection = COLLECTION
+    hf_fields = (
+        ("item_id", "string"),
+        ("name", "string"),
+        ("brand", "string"),
+        ("color", "string"),
+        ("product_type", "string"),
+        ("country", "string"),
+        ("image_url", "string"),
+    )
 
     def add_prepare_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(

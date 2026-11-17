@@ -19,6 +19,8 @@ dependencies = [
 local = ["sentence-transformers>=5.0,<6"]
 # Reads the ESCI source Parquet files.
 esci = ["duckdb>=1.4,<2"]
+# Writes Parquet shards for Hugging Face with the export step.
+export = ["pyarrow>=20,<27"]
 
 [project.scripts]
 qdrant-datasets = "qdrant_sample_datasets:main"

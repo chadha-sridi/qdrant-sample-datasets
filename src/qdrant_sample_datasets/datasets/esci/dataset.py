@@ -37,6 +37,19 @@ class EsciDataset(Dataset):
     )
     collection = COLLECTION
     supports_evaluation = True
+    hf_fields = (
+        ("product_id", "string"),
+        ("title", "string"),
+        ("brand", "string"),
+        ("color", "string"),
+        ("text", "string"),
+    )
+
+    def hf_files(self) -> dict[str, Path]:
+        return super().hf_files() | {QUERIES_FILE: SHIPPED_QUERIES}
+
+    def export_extras(self, out_dir: Path) -> list[Path]:
+        return [write_judgments_parquet(SHIPPED_QUERIES, out_dir / "judgments")]
 
     def add_prepare_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
@@ -117,6 +130,45 @@ class EsciDataset(Dataset):
                 return [str((point.payload or {})["product_id"]) for point in points]
 
             print(f"  {mode:7} {mean_ndcg(queries, ranked_ids):.3f}")
+
+
+def write_judgments_parquet(queries_path: Path, out_dir: Path) -> Path:
+    """Write the judgments as Parquet, each query's judgments as a list of product and label pairs.
+
+    Hugging Face loads every configuration of a repository with the same file format, so the judgments
+    need to be Parquet like the products.
+    """
+    # Imported here because pyarrow is the optional `export` extra.
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    queries = [Query(**row) for row in read_jsonl(queries_path)]
+    judgment = pa.struct([("product_id", pa.string()), ("label", pa.string())])
+    schema = pa.schema(
+        [
+            ("query_id", pa.int64()),
+            ("query", pa.string()),
+            ("judgments", pa.list_(judgment)),
+        ]
+    )
+    table = pa.Table.from_pylist(
+        [
+            {
+                "query_id": query.query_id,
+                "query": query.query,
+                "judgments": [
+                    {"product_id": product_id, "label": label}
+                    for product_id, label in query.judgments.items()
+                ],
+            }
+            for query in queries
+        ],
+        schema=schema,
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "test-00000-of-00001.parquet"
+    pq.write_table(table, path)
+    return path
 
 
 def to_hit(point: models.ScoredPoint) -> Hit:
