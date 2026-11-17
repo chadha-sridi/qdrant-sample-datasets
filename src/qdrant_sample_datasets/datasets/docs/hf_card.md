@@ -74,6 +74,8 @@ client.create_collection(
     vectors_config={
         "dense": models.VectorParams(size=384, distance=models.Distance.COSINE)
     },
+    # The collection is small, so lower the threshold to build the HNSW graph anyway.
+    optimizers_config=models.OptimizersConfigDiff(indexing_threshold=1000),
 )
 
 dataset = load_dataset(
